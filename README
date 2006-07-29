@@ -1,0 +1,65 @@
+This is a mirror of http://www.vim.org/scripts/script.php?script_id=1623
+
+This script can fold PHP functions and/or classes, properties with their PhpDoc, 
+without manually adding marker style folds ({{{ and }}}). It will generate the following 
+folds when executed:
+
+<?php
+/**
+* This is Foo...
+* @author Foo
+*/
+class Foo {
++-- 11 lines: function fooFunction($bar) ** -----------------------------------------
++--   8 lines: function fooFunction2($bar) ** ----------------------------------------
++-- 24 lines: function fooFunction3($bar) -------------------------------------------
+}
+
++--112 lines: class Foo2 ** -------------------------------------------------------------
+?>
+
+Based on e.g. functions declared like this:
+
+<?php
+/**
+ * This is fooFunction...
+ * 
+ * @param mixed $bar 
+ * @access public
+ * @return void
+ */
+function fooFunction($bar) {
+    [...]
+}
+?>
+
+SCREENSHOT
+You can view a screenshot here: http://www.fighterz.net/trig/folding.gif
+
+FEATURES
+- It remembers fold settings. If you add functions and execute the script again, 
+  your opened folds will not be closed.
+- It will not be confused by brackets in comment blocks or string literals.
+- The folding of class properties with their PhpDoc comments.
+- The folding of all class properties into one fold.
+- Folding the original marker style folds too.
+- An "**" postfixing the fold indicates PhpDoc is inside (configurable).
+- An "**#@+" postfixing the fold indicates PhpDocBlock is inside (configurable).
+- Empty lines postfixing the folds can be configured to be included in the fold.
+- Nested folds are supported (functions inside functions, etc.)
+
+FUTURE
+- Better 'configurability' as opposed to editting the PHPCustomFolds() function and
+  some "Script configuration" global variables.
+
+NOTE
+If anyone has emailed me and I have not replied, it's probably lost. I just found out 
+hotmail recognizes alot as junk. I now turned off the junk filter..
+
+NOTE2:
+I'm currently more active again with this project, so if you have any contributions to 
+this project, please let me know.
+
+COMPATIBILITY
+This script is tested successfully with Vim version >= 6.3 on windows and linux
+(With 6.0 it works *sometimes*, I don't recommend using it in that version)
