@@ -100,7 +100,13 @@ function! s:FindFoldStart(startPattern) " {{{
 	"
 	" function ...(...)
 	" .. {
-	return search(a:startPattern . '.*\%[\n].*{', 'W')
+	"
+	" Added:
+	" function ...(...
+	"    ...)
+	" {
+	"return search(a:startPattern . '.*\%[\n].*{', 'W')
+	return search(a:startPattern . '.*\%[\n].*\%[\n].*{', 'W')
 endfunction
 " }}}
 function! s:FindOptionalPHPDocComment() " {{{
@@ -156,15 +162,20 @@ endfunction
 
 function PHPFoldText() " {{{
 	let currentLine = v:foldstart
-	while currentLine <= v:foldend
-		let lines = (v:foldend - v:foldstart + 1)
-		if strridx(getline(currentLine), "function") != -1
-			break
-		elseif strridx(getline(currentLine), "class") != -1
-			break
-		endif
-		let currentLine = currentLine + 1
-	endwhile
+	let lines = (v:foldend - v:foldstart + 1)
+	" See if we folded an API comment block
+	if strridx(getline(currentLine), "\/\*\*") != -1
+		" (I can't get search() or searchpair() to work.., therefore the
+		" following loop)
+		while currentLine <= v:foldend
+			if strridx(getline(currentLine), "\*\/") != -1
+				let currentLine = currentLine + 1
+				break
+			endif
+			let currentLine = currentLine + 1
+		endwhile
+
+	endif
 
 	if (exists('*printf'))
 		return "+--".printf("%3d", lines)." lines: " . getline(currentLine)
