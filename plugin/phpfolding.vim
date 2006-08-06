@@ -1,7 +1,7 @@
 " Plugin for automatic folding of PHP functions (also folds related PhpDoc)
 "
 " Maintainer: Ray Burgemeestre
-" Last Change: 2006 Jul 31
+" Last Change: 2006 Aug 7
 "
 " INSTALL
 "   1. Put phpfolding.vim in your plugins directory
@@ -33,6 +33,15 @@ command! EnableFastPHPFolds call <SID>EnableFastPHPFolds()
 command! -nargs=* EnablePHPFolds call <SID>EnablePHPFolds(<f-args>)
 command! DisablePHPFolds call <SID>DisablePHPFolds()
 
+" {{{ Script configuration
+" Display the following after the foldtext if a fold contains phpdoc
+let g:phpDocIncludedPostfix = '*'
+" Default values
+" .. search this # of empty lines for PhpDoc comments
+let g:searchPhpDocLineCount = 1
+" .. search this # of empty lines that 'trail' the foldmatch
+let g:searchEmptyLinesPostfixing = 2
+" }}}
 " {{{ Script constants
 let s:synIDattr_exists = exists('*synIDattr')
 let s:TRUE = 1
@@ -68,8 +77,15 @@ function! s:EnablePHPFolds(...) " {{{
 	let s:foldingMode = s:MODE_CREATE_FOLDS
 	" ..Remove all existing folds
 	normal zE
+
+	let s:searchPhpDocLineCount = g:searchPhpDocLineCount
+	let s:searchEmptyLinesPostfixing = g:searchEmptyLinesPostfixing
+
 	let s:foldsCreated = 0
 	call s:PHPCustomFolds()
+
+	" Fold all
+	normal zM
 
 	echo s:foldsCreated . " fold(s) created"
 endfunction
@@ -82,30 +98,49 @@ function! s:DisablePHPFolds() " {{{
 endfunction
 " }}}
 function! s:PHPCustomFolds() " {{{
-	" NOTE: Be sure to fold the smaller folds first, i.e. first functions then
-	" classes. In reverse order the smaller folds won't be folded!
+	" NOTE: The 3rd and 4th parameter for functions PHPFoldProperties and
+	" PHPFoldPureBlock overwrite respectively: g:searchPhpDocLineCount and
+	" g:searchEmptyLinesPostfixing
 
 	" Fold function with PhpDoc (function foo() {})
 	call s:PHPFoldPureBlock('function', s:FOLD_WITH_PHPDOC)
-	
+
 	" Fold class properties with PhpDoc (var $foo = NULL;)
-	call s:PHPFoldProperties('^\s*var\s\$', ";", s:FOLD_WITH_PHPDOC)
+	call s:PHPFoldProperties('^\s*var\s\$', ";", s:FOLD_WITH_PHPDOC, 1, 0)
 
 	" Fold class without PhpDoc (class foo {})
-	call s:PHPFoldPureBlock('class', s:FOLD_WITH_PHPDOC)
+	call s:PHPFoldPureBlock('^\s*class', s:FOLD_WITH_PHPDOC)
 	
+	" Fold define()'s with their PhpDoc
+	call s:PHPFoldProperties('^\s*define\s*(', ";", s:FOLD_WITH_PHPDOC, 1, 0)
+
+	" Fold includes with their PhpDoc
+	call s:PHPFoldProperties('^\s*require\s*', ";", s:FOLD_WITH_PHPDOC, 1, 0)
+	call s:PHPFoldProperties('^\s*include\s*', ";", s:FOLD_WITH_PHPDOC, 1, 0)
+
+	" Fold GLOBAL Arrays with their PhpDoc (some PEAR packages use these)
+	call s:PHPFoldProperties('^\s*\$GLOBALS.*array\s*(', ";", s:FOLD_WITH_PHPDOC, 1, 0)
+
 	" Fold marker style comments ({{{ foo }}})
 	call s:PHPFoldMarkers('{{{', '}}}')
 endfunction
 " }}}
 function! s:PHPFoldPureBlock(startPattern, ...) " {{{
-	" Check function arguments
-	if a:0 < 1
-		" Default we also put the PHP doc part in the fold
-		let s:currentPhpDocMode = s:FOLD_WITH_PHPDOC
-	elseif a:0 == 1
+	let s:searchPhpDocLineCount = g:searchPhpDocLineCount
+	let s:searchEmptyLinesPostfixing = g:searchEmptyLinesPostfixing
+	let s:currentPhpDocMode = s:FOLD_WITH_PHPDOC
+
+	if a:0 >= 1
 		" Do we also put the PHP doc part in the fold?
 		let s:currentPhpDocMode = a:1
+	endif
+	if a:0 >= 2
+		" How far do we want to look for PhpDoc comments?
+		let s:searchPhpDocLineCount = a:2
+	endif
+	if a:0 == 3
+		" How greedy are we on postfixing empty lines?
+		let s:searchEmptyLinesPostfixing = a:3
 	endif
 
 	" Remember cursor information if possible
@@ -138,6 +173,8 @@ function! s:PHPFoldPureBlock(startPattern, ...) " {{{
 		let lineCurrent = lineCurrent + 1
 	endwhile
 
+	" Remove created folds
+	normal zR
 	" Restore cursor
 	exec s:savedCursor
 endfunction
@@ -173,18 +210,27 @@ function! s:PHPFoldMarkers(startPattern, endPattern) " {{{
 		let lineCurrent = lineCurrent + 1
 	endwhile
 
+	" Remove created folds
+	normal zR
 	" Restore cursor
 	exec s:savedCursor
 endfunction
 " }}}
 function! s:PHPFoldProperties(startPattern, endPattern, ...) " {{{
-	" Check function arguments
-	if a:0 < 1
-		" Default we also put the PHP doc part in the fold
-		let s:currentPhpDocMode = s:FOLD_WITH_PHPDOC
-	elseif a:0 == 1
+	let s:searchPhpDocLineCount = g:searchPhpDocLineCount
+	let s:searchEmptyLinesPostfixing = g:searchEmptyLinesPostfixing
+	let s:currentPhpDocMode = s:FOLD_WITH_PHPDOC
+	if a:0 >= 1
 		" Do we also put the PHP doc part in the fold?
 		let s:currentPhpDocMode = a:1
+	endif
+	if a:0 >= 2
+		" How far do we want to look for PhpDoc comments?
+		let s:searchPhpDocLineCount = a:2
+	endif
+	if a:0 == 3
+		" How greedy are we on postfixing empty lines?
+		let s:searchEmptyLinesPostfixing = a:3
 	endif
 
 	" Remember cursor information if possible
@@ -208,11 +254,6 @@ function! s:PHPFoldProperties(startPattern, endPattern, ...) " {{{
 				break
 			endif
 
-			" Be greedy on an empty line postfixing the property declaration
-			if getline(s:lineStop + 1) == ""
-				let s:lineStop = s:lineStop + 1
-			endif
-
 			" Do something with the potential fold based on the Mode we're in
 			call s:HandleFold(lineCurrent)
 		else
@@ -221,6 +262,8 @@ function! s:PHPFoldProperties(startPattern, endPattern, ...) " {{{
 		let lineCurrent = lineCurrent + 1
 	endwhile
 
+	" Remove created folds
+	normal zR
 	" Restore cursor
 	exec s:savedCursor
 endfunction
@@ -288,8 +331,19 @@ function! s:FindOptionalPHPDocComment() " {{{
 		return s:lineStart
 	endif
 
+	" Skipover 'empty' lines in search for PhpDoc
+	let s:counter = 0
+	let s:currentLine = s:lineStart - 1
+	while s:counter < s:searchPhpDocLineCount
+		let line = getline(s:currentLine)
+		if (matchstr(line, '^\s*$') == line)
+			let s:currentLine = s:currentLine - 1
+		endif
+		let s:counter = s:counter + 1
+	endwhile
+
 	" Is there a closing C style */ on the above line?
-	let checkLine = s:lineStart - 1
+	let checkLine = s:currentLine
 	if strridx(getline(checkLine), "\*\/") != -1
 		" Then search for the matching C style /* opener
 		while 1
@@ -329,14 +383,31 @@ function! s:FindPureBlockEnd() " {{{
 	endif
 
 	" Be greedy with an extra 'trailing' empty line
-	if getline(line+1) == ""
-		let line = line + 1
-	endif
+	let s:counter = 0
+	while s:counter < s:searchEmptyLinesPostfixing
+		let linestr = getline(line + 1)		
+		if (matchstr(linestr, '^\s*$') == linestr)
+			let line = line + 1
+		endif
+		let s:counter = s:counter + 1
+	endwhile
+
 	return line
 endfunction
 " }}}
 function! s:FindPatternEnd(endPattern) " {{{
-	return search(a:endPattern, 'W')
+	let line = search(a:endPattern, 'W')
+
+	" Be greedy with an extra 'trailing' empty line
+	let s:counter = 0
+	while s:counter < s:searchEmptyLinesPostfixing
+		let linestr = getline(line + 1)		
+		if (matchstr(linestr, '^\s*$') == linestr)
+			let line = line + 1
+		endif
+		let s:counter = s:counter + 1
+	endwhile
+	return line
 endfunction
 " }}}
 
@@ -346,15 +417,28 @@ function! PHPFoldText() " {{{
 	" See if we folded a marker
 	if strridx(getline(currentLine), "{{{") != -1 " }}}
 		let lineString = getline(currentLine)
-		let lineString = substitute(lineString, '^.*{{{', '', 'g') " }}}
+		" Is there text after the fold opener?
+		if (matchstr(lineString, '^.*{{{..*$') == lineString) " }}}
+			" Then only show that text
+			let lineString = substitute(lineString, '^.*{{{', '', 'g') " }}}
+		" There is text before the fold opener
+		else
+			" Try to strip away the remainder
+			let lineString = substitute(lineString, '\s*{{{.*$', '', 'g') " }}}
+		endif
 		break
 	" See if we folded an API comment block
 	elseif strridx(getline(currentLine), "\/\*\*") != -1
 		" (I can't get search() or searchpair() to work.., therefore the
 		" following loop)
+		let s:state = 0
 		while currentLine < v:foldend
-			if strridx(getline(currentLine), "\*\/") != -1
-				let currentLine = currentLine + 1
+			let line = getline(currentLine)
+			if s:state == 0 && strridx(line, "\*\/") != -1
+				" Found the end, now we need to find the first not-empty line
+				let s:state = 1
+			elseif s:state == 1 && (matchstr(line, '^\s*$') != line)
+				" Found the line to display in fold!
 				break
 			endif
 			let currentLine = currentLine + 1
@@ -364,20 +448,26 @@ function! PHPFoldText() " {{{
 		let lineString = getline(currentLine)
 	endif
 	
-	"if currentLine != v:foldend 
+	" Some common replaces...
+	" if currentLine != v:foldend 
 		let lineString = substitute(lineString, '/\*\|\*/\d\=', '', 'g')
 		let lineString = substitute(lineString, '^\s*', '', 'g')
 		let lineString = substitute(lineString, '{$', '', 'g')
-	"endif
+	" endif
 
+	" Emulates printf("%3d", lines)..
 	if lines < 10
 		let lines = "  " . lines
 	elseif lines < 100
 		let lines = " " . lines
 	endif
+
+	" Append an (a) if there is PhpDoc in the fold (a for API)
 	if currentLine != v:foldstart
-		let lineString = lineString . " [A]"
+		let lineString = lineString . " " . g:phpDocIncludedPostfix . " "
 	endif	
+
+	" Return the foldtext
 	return "+--".lines." lines: " . lineString
 endfunction
 " }}}
@@ -396,4 +486,4 @@ function! SkipMatch() " {{{
 endfun
 " }}}
 
-" vim:ft=vim:foldmethod=marker:nowrap:tabstop=4:shiftwidth=4
+" vim:ft=vim:foldmethod=marker:nowrap:tabstop=4:shiftwidth=44
