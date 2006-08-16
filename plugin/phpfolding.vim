@@ -1,13 +1,13 @@
 " Plugin for automatic folding of PHP functions (also folds related PhpDoc)
 "
 " Maintainer: Ray Burgemeestre
-" Last Change: 2006 Aug 7
+" Last Change: 2006 Aug 16
 "
 " INSTALL
-"   1. Put phpfolding.vim in your plugins directory
+"   1. Put phpfolding.vim in your plugin directory
 "   2. It might be necessary that you load the plugin from your .vimrc, 
 "   i.e.:
-"        source ~/.vim/plugins/phpfolding.vim
+"        source ~/.vim/plugin/phpfolding.vim
 "   3! Make sure php_folding in disabled in your .vimrc, like:
 "        let php_folding=0
 "      Enabling this seems to interfere with this script.
@@ -33,15 +33,6 @@ command! EnableFastPHPFolds call <SID>EnableFastPHPFolds()
 command! -nargs=* EnablePHPFolds call <SID>EnablePHPFolds(<f-args>)
 command! DisablePHPFolds call <SID>DisablePHPFolds()
 
-" {{{ Script configuration
-" Display the following after the foldtext if a fold contains phpdoc
-let g:phpDocIncludedPostfix = '*'
-" Default values
-" .. search this # of empty lines for PhpDoc comments
-let g:searchPhpDocLineCount = 1
-" .. search this # of empty lines that 'trail' the foldmatch
-let g:searchEmptyLinesPostfixing = 2
-" }}}
 " {{{ Script constants
 let s:synIDattr_exists = exists('*synIDattr')
 let s:TRUE = 1
@@ -49,7 +40,30 @@ let s:FALSE = 0
 let s:MODE_CREATE_FOLDS = 1
 let s:MODE_REMEMBER_FOLD_SETTINGS = 2
 let s:FOLD_WITH_PHPDOC = 1
-let s:FOLD_WITHOUT_PHPDOC = 0
+let s:FOLD_WITHOUT_PHPDOC = 2
+let s:SEARCH_PAIR_START_FIRST = 1
+let s:SEARCH_PAIR_IMMEDIATELY = 2
+let s:WITH_RECURSION = s:TRUE
+let s:WITHOUT_RECURSION = s:FALSE
+" }}}
+" {{{ Script configuration
+
+" Display the following after the foldtext if a fold contains phpdoc
+let g:phpDocIncludedPostfix = '*'
+
+" Default values
+" .. search this # of empty lines for PhpDoc comments
+let g:searchPhpDocLineCount = 1
+" .. search this # of empty lines that 'trail' the foldmatch
+let g:searchEmptyLinesPostfixing = 1
+
+
+" Script defaults
+" .. search recursively by default in "pure block" folds?
+let g:searchRecursionModeInPureBlockFolds = s:WITHOUT_RECURSION
+" .. search recursively by default in "marker" folds?
+let g:searchRecursionModeInMarkerFolds = s:WITH_RECURSION
+" .. 
 " }}}
 
 function! s:EnableFastPHPFolds() " {{{
@@ -63,31 +77,48 @@ function! s:EnablePHPFolds(...) " {{{
 	elseif a:0 == 1
 		let s:extensiveBracketChecking = a:1
 	endif
+
+	" Remember cursor information if possible
+	let s:savedCursor = line(".")
+
+	" Move to file top
+	exec 0
 	
 	" Initialize variables
 	set foldmethod=manual
 	set foldtext=PHPFoldText()
 	let s:openFoldListItems = 0
+	let s:fileLineCount = line('$')
 
+	let s:searchPhpDocLineCount = g:searchPhpDocLineCount
+	let s:searchEmptyLinesPostfixing = g:searchEmptyLinesPostfixing
+	
 	" First pass: Look for Folds, remember opened folds
 	let s:foldingMode = s:MODE_REMEMBER_FOLD_SETTINGS
 	call s:PHPCustomFolds()
 
 	" Second pass: Recreate Folds, restore previously opened
 	let s:foldingMode = s:MODE_CREATE_FOLDS
-	" ..Remove all existing folds
+	" .. Remove all folds first
 	normal zE
-
-	let s:searchPhpDocLineCount = g:searchPhpDocLineCount
-	let s:searchEmptyLinesPostfixing = g:searchEmptyLinesPostfixing
-
 	let s:foldsCreated = 0
 	call s:PHPCustomFolds()
-
-	" Fold all
+	" .. Fold all
 	normal zM
 
+	" Restore previously opened folds
+	let currentItem = 0
+	while currentItem < s:openFoldListItems
+		exec s:foldsOpenedList{currentItem}
+		normal zo
+		let currentItem = currentItem + 1
+	endwhile
+
 	echo s:foldsCreated . " fold(s) created"
+
+	" Restore cursor
+	exec s:savedCursor
+	
 endfunction
 " }}}
 function! s:DisablePHPFolds() " {{{
@@ -106,29 +137,31 @@ function! s:PHPCustomFolds() " {{{
 	call s:PHPFoldPureBlock('function', s:FOLD_WITH_PHPDOC)
 
 	" Fold class properties with PhpDoc (var $foo = NULL;)
-	call s:PHPFoldProperties('^\s*var\s\$', ";", s:FOLD_WITH_PHPDOC, 1, 0)
+	call s:PHPFoldProperties('^\s*var\s\$', ";", s:FOLD_WITH_PHPDOC, 1, 1)
 
 	" Fold class without PhpDoc (class foo {})
-	call s:PHPFoldPureBlock('^\s*class', s:FOLD_WITH_PHPDOC)
+	call s:PHPFoldPureBlock('^\s*\(abstract\s*\)\?class', s:FOLD_WITH_PHPDOC)
 	
 	" Fold define()'s with their PhpDoc
-	call s:PHPFoldProperties('^\s*define\s*(', ";", s:FOLD_WITH_PHPDOC, 1, 0)
+	call s:PHPFoldProperties('^\s*define\s*(', ";", s:FOLD_WITH_PHPDOC)
 
 	" Fold includes with their PhpDoc
-	call s:PHPFoldProperties('^\s*require\s*', ";", s:FOLD_WITH_PHPDOC, 1, 0)
-	call s:PHPFoldProperties('^\s*include\s*', ";", s:FOLD_WITH_PHPDOC, 1, 0)
+	call s:PHPFoldProperties('^\s*require\s*', ";", s:FOLD_WITH_PHPDOC)
+	call s:PHPFoldProperties('^\s*include\s*', ";", s:FOLD_WITH_PHPDOC)
 
 	" Fold GLOBAL Arrays with their PhpDoc (some PEAR packages use these)
-	call s:PHPFoldProperties('^\s*\$GLOBALS.*array\s*(', ";", s:FOLD_WITH_PHPDOC, 1, 0)
+	call s:PHPFoldProperties('^\s*\$GLOBALS.*array\s*(', ";", s:FOLD_WITH_PHPDOC)
 
 	" Fold marker style comments ({{{ foo }}})
-	call s:PHPFoldMarkers('{{{', '}}}')
+	" NOTE: Recursion does not yet work in this version!!
+	call s:PHPFoldMarkers('{{{', '}}}', s:WITHOUT_RECURSION)
 endfunction
 " }}}
 function! s:PHPFoldPureBlock(startPattern, ...) " {{{
 	let s:searchPhpDocLineCount = g:searchPhpDocLineCount
 	let s:searchEmptyLinesPostfixing = g:searchEmptyLinesPostfixing
 	let s:currentPhpDocMode = s:FOLD_WITH_PHPDOC
+	let recursion = g:searchRecursionModeInPureBlockFolds
 
 	if a:0 >= 1
 		" Do we also put the PHP doc part in the fold?
@@ -138,13 +171,14 @@ function! s:PHPFoldPureBlock(startPattern, ...) " {{{
 		" How far do we want to look for PhpDoc comments?
 		let s:searchPhpDocLineCount = a:2
 	endif
-	if a:0 == 3
+	if a:0 >= 3
 		" How greedy are we on postfixing empty lines?
 		let s:searchEmptyLinesPostfixing = a:3
 	endif
-
-	" Remember cursor information if possible
-	let s:savedCursor = line(".")
+	if a:0 == 4
+		" Can there be nested pure blocks?
+		let recursion = a:4
+	endif
 
 	" Move to file top
 	exec 0
@@ -157,7 +191,7 @@ function! s:PHPFoldPureBlock(startPattern, ...) " {{{
 			let s:lineStart = line('.')
 
 			let s:lineStart = s:FindOptionalPHPDocComment()
-			let s:lineStop = s:FindPureBlockEnd()
+			let s:lineStop = s:FindPureBlockEnd('{', '}', s:SEARCH_PAIR_START_FIRST)
 
 			" Stop on Error
 			if s:lineStop == 0
@@ -167,22 +201,31 @@ function! s:PHPFoldPureBlock(startPattern, ...) " {{{
 			" Do something with the potential fold based on the Mode we're in
 			call s:HandleFold(lineCurrent)
 
+			" Go to fold start again (or continue at fold end)
+			if recursion == s:WITH_RECURSION
+				exec lineCurrent + 1
+			endif
 		else
 			break
 		endif
 		let lineCurrent = lineCurrent + 1
 	endwhile
 
-	" Remove created folds
-	normal zR
-	" Restore cursor
-	exec s:savedCursor
+
+	if s:foldingMode != s:MODE_REMEMBER_FOLD_SETTINGS
+    	" Remove created folds
+	    normal zR
+    endif
 endfunction
 " }}}
-function! s:PHPFoldMarkers(startPattern, endPattern) " {{{
+function! s:PHPFoldMarkers(startPattern, endPattern, ...) " {{{
+	let recursion = s:WITH_RECURSION
+
+	if a:0 >= 1
+		let recursion = a:1
+	endif
+	
 	let s:currentPhpDocMode = s:FOLD_WITHOUT_PHPDOC
-	" Remember cursor information if possible
-	let s:savedCursor = line(".")
 
 	" Move to file top
 	exec 0
@@ -193,9 +236,11 @@ function! s:PHPFoldMarkers(startPattern, endPattern) " {{{
 
 		if lineCurrent != 0
 			let s:lineStart = line('.')
-
 			let s:lineStart = s:FindOptionalPHPDocComment()
-			let s:lineStop = s:FindPatternEnd(a:endPattern)
+			" The fourth parameter is for disabling the search for trailing
+			" empty lines..
+			let s:lineStop = s:FindPureBlockEnd(a:startPattern, a:endPattern, 
+				\ s:SEARCH_PAIR_IMMEDIATELY, s:FALSE)
 
 			" Stop on Error
 			if s:lineStop == 0
@@ -204,16 +249,21 @@ function! s:PHPFoldMarkers(startPattern, endPattern) " {{{
 
 			" Do something with the potential fold based on the Mode we're in
 			call s:HandleFold(lineCurrent)
+
+			" Go to fold start again (or continue at fold end)
+			if recursion == s:WITH_RECURSION
+				exec lineCurrent + 1
+			endif
 		else
 			break
 		endif
 		let lineCurrent = lineCurrent + 1
 	endwhile
 
-	" Remove created folds
-	normal zR
-	" Restore cursor
-	exec s:savedCursor
+	if s:foldingMode != s:MODE_REMEMBER_FOLD_SETTINGS
+    	" Remove created folds
+	    normal zR
+    endif
 endfunction
 " }}}
 function! s:PHPFoldProperties(startPattern, endPattern, ...) " {{{
@@ -233,9 +283,6 @@ function! s:PHPFoldProperties(startPattern, endPattern, ...) " {{{
 		let s:searchEmptyLinesPostfixing = a:3
 	endif
 
-	" Remember cursor information if possible
-	let s:savedCursor = line(".")
-
 	" Move to file top
 	exec 0
 
@@ -262,46 +309,45 @@ function! s:PHPFoldProperties(startPattern, endPattern, ...) " {{{
 		let lineCurrent = lineCurrent + 1
 	endwhile
 
-	" Remove created folds
-	normal zR
-	" Restore cursor
-	exec s:savedCursor
+	if s:foldingMode != s:MODE_REMEMBER_FOLD_SETTINGS
+    	" Remove created folds
+	    normal zR
+    endif
 endfunction
 " }}}
 function! s:HandleFold(lineCurrent) " {{{
 	let lineCurrent = a:lineCurrent
 
 	if s:foldingMode == s:MODE_REMEMBER_FOLD_SETTINGS
-		" If we are in an actual fold..
+		" If we are in an actual fold..,
 		if foldlevel(lineCurrent) != 0
-			" .. and it is not closed
+			" .. and it is not closed..,
 			if foldclosed(lineCurrent) == -1
-				" Remember it as an open fold
-				let s:foldsOpenedList{s:openFoldListItems} = getline(lineCurrent)
-				let s:openFoldListItems = s:openFoldListItems + 1
+                " .. and it is more then one lines 
+                " (it has to be or it will be open by default)
+                if s:lineStop - s:lineStart >= 1
+                    " Remember it as an open fold
+                    let s:foldsOpenedList{s:openFoldListItems} = lineCurrent
+                    let s:openFoldListItems = s:openFoldListItems + 1
+                endif
 			endif
 		endif
-
-	elseif s:foldingMode == s:MODE_CREATE_FOLDS
-		" Create the actual fold!
-		exec s:lineStart . "," . s:lineStop . "fold"
-
-		" If the fold was previously open, it needs to be opened
-		let currentItem = 0
-		while currentItem < s:openFoldListItems
-			" Was this line previously marked as an open fold?
-			if s:foldsOpenedList{currentItem} == getline(lineCurrent)
-				" Restore
-				normal zo
-			endif
-			let currentItem = currentItem + 1
-		endwhile
 
 		" If the cursor is inside the fold, it needs to be opened
 		if s:lineStart <= s:savedCursor && s:lineStop >= s:savedCursor
-			normal zo
+			" Remember it as an open fold
+			let s:foldsOpenedList{s:openFoldListItems} = lineCurrent
+			let s:openFoldListItems = s:openFoldListItems + 1
 		endif
-
+		
+	elseif s:foldingMode == s:MODE_CREATE_FOLDS
+		" Correct lineStop if needed (the script might have mistaken lines
+		"   beyond the file's scope for trailing empty lines)
+		if s:lineStop > s:fileLineCount
+			let s:lineStop = s:fileLineCount
+		endif
+		" Create the actual fold!
+		exec s:lineStart . "," . s:lineStop . "fold"
 		let s:foldsCreated = s:foldsCreated + 1
 	endif
 endfunction
@@ -364,33 +410,46 @@ function! s:FindOptionalPHPDocComment() " {{{
 	return s:lineStart
 endfunction
 " }}}
-function! s:FindPureBlockEnd() " {{{
-	" Place Cursor on the opening brace
-	let line = search('{', 'W')
+function! s:FindPureBlockEnd(startPair, endPair, searchStartPairFirst, ...) " {{{
+	" Place Cursor on the opening pair/brace?
+	if a:searchStartPairFirst == s:SEARCH_PAIR_START_FIRST
+		let line = search(a:startPair, 'W')
+	endif
+
 	" Search for the entangled closing brace
 	" call cursor(line, 1) " set the cursor to the start of the lnum line
 	if s:extensiveBracketChecking == s:TRUE
-		let line = searchpair('{', '{', '}', 'W', 'SkipMatch()')
+		let line = searchpair(a:startPair, a:startPair, a:endPair, 'W', 'SkipMatch()')
 	else
-		let line = searchpair('{', '{', '}', 'W')
+		let line = searchpair(a:startPair, a:startPair, a:endPair, 'W')
 	endif
 	if line == 0
-		let line = search('}', 'W')
+		let line = search(a:endPair, 'W')
 	endif
 	if line == 0
 		" Return error
 		return 0
 	endif
 
-	" Be greedy with an extra 'trailing' empty line
-	let s:counter = 0
-	while s:counter < s:searchEmptyLinesPostfixing
-		let linestr = getline(line + 1)		
-		if (matchstr(linestr, '^\s*$') == linestr)
-			let line = line + 1
-		endif
-		let s:counter = s:counter + 1
-	endwhile
+	" If the fold exceeds more than one line, and searching for empty lines is
+	" not disabled..
+	let foldExceedsOneLine = line - s:lineStart >= 1
+	if a:0 == 1
+		let emptyLinesNotDisabled = a:1
+	else
+		let emptyLinesNotDisabled = s:TRUE
+	endif
+	if foldExceedsOneLine && emptyLinesNotDisabled
+		" Then be greedy with extra 'trailing' empty line(s)
+		let s:counter = 0
+		while s:counter < s:searchEmptyLinesPostfixing
+			let linestr = getline(line + 1)		
+			if (matchstr(linestr, '^\s*$') == linestr)
+				let line = line + 1
+			endif
+			let s:counter = s:counter + 1
+		endwhile
+	endif
 
 	return line
 endfunction
@@ -398,15 +457,19 @@ endfunction
 function! s:FindPatternEnd(endPattern) " {{{
 	let line = search(a:endPattern, 'W')
 
-	" Be greedy with an extra 'trailing' empty line
-	let s:counter = 0
-	while s:counter < s:searchEmptyLinesPostfixing
-		let linestr = getline(line + 1)		
-		if (matchstr(linestr, '^\s*$') == linestr)
-			let line = line + 1
-		endif
-		let s:counter = s:counter + 1
-	endwhile
+	" If the fold exceeds more than one line
+	if line - s:lineStart >= 1
+		" Then be greedy with extra 'trailing' empty line(s)
+		let s:counter = 0
+		while s:counter < s:searchEmptyLinesPostfixing
+			let linestr = getline(line + 1)		
+			if (matchstr(linestr, '^\s*$') == linestr)
+				let line = line + 1
+			endif
+			let s:counter = s:counter + 1
+		endwhile
+	endif
+
 	return line
 endfunction
 " }}}
@@ -486,4 +549,4 @@ function! SkipMatch() " {{{
 endfun
 " }}}
 
-" vim:ft=vim:foldmethod=marker:nowrap:tabstop=4:shiftwidth=44
+" vim:ft=vim:foldmethod=marker:nowrap:tabstop=4:shiftwidth=4
