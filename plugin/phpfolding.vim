@@ -1,38 +1,70 @@
-" Plugin for automatic folding of PHP functions (also folds related PhpDoc)
+" Plugin for automatic folding of PHP functions (also folds related PHPdoc)
 "
 " Maintainer: Ray Burgemeestre
-" Last Change: 2006 Aug 16
+" Last Change: 2006 Aug 26
+" 
+" USAGE
+"  If you enabled the script in your after/ftplugin directory (see install)
+"  then it will be executed after you open a .php file.
 "
+"  After e.g. adding/moving functions, you can re-execute the script by using
+"  the following key mappings:
+"
+"  F5 - To fold functions, classes, and other stuff with PHPdoc (depending
+"       on your configuration).
+"  F6 - To do the same with more extensive bracket checking (might work
+"       better if your folds are messed up due to misinterpreted brackets).
+"  F7 - To remove all folds.
+" 
 " INSTALL
-"   1. Put phpfolding.vim in your plugin directory
-"   2. It might be necessary that you load the plugin from your .vimrc, 
-"   i.e.:
-"        source ~/.vim/plugin/phpfolding.vim
-"   3! Make sure php_folding in disabled in your .vimrc, like:
-"        let php_folding=0
-"      Enabling this seems to interfere with this script.
-"   4. You might want to add the following keyboard mappings too:
-"        map <F5> <Esc>:EnableFastPHPFolds<Cr>
-"        map <F6> <Esc>:EnablePHPFolds<Cr>
-"        map <F7> <Esc>:DisablePHPFolds<Cr>
-"   5. Then in a PHP file you can press <F5> to automatically fold all PHP
-"   functions and classes. <F7> will Remove all folds. If in some PHP file
-"   brackets mess up your folds, use <F6>. It does more extensive checking.
+"  1. Put phpfolding.vim in your plugin directory (~/.vim/plugin)
+"  2. You might want to add the following keyboard mappings to your .vimrc:
 "
-" MORE INFORMATION
-"   In PHPCustomFolds() you can i.e. comment the PHPFoldPureBlock('class', ...) 
-"   call to have the script not fold classes. You can also change the second
-"   parameter passed to that function call, to have it or not have it fold
-"   PhpDoc comments. All other folding you can turn on/off in this function.
+"       map <F5> <Esc>:EnableFastPHPFolds<Cr>
+"       map <F6> <Esc>:EnablePHPFolds<Cr>
+"       map <F7> <Esc>:DisablePHPFolds<Cr>
 "
-"   You can tweak the foldtext to your liking in the function PHPFoldText().
+"  3. You might want to add the following lines to php.vim in your after/ftplugin
+"     directory (~/.vim/after/ftplugin/php.vim), this will be executed after 
+"     opening a .php file:
 "
-"   This script is tested with Vim version >= 6.3 on windows and linux.
+"       " Don't use the PHP syntax folding
+"       setlocal foldmethod=manual
+"       " Turn on PHP fast folds
+"       EnableFastPHPFolds
+"
+"  It might be necessary that you load the plugin from your .vimrc, i.e.:
+"    let php_folding=0 
+"      (if you can't use the after directory in step 3)
+"    source ~/path/to/phpfolding.vim
+"      (if you're not using the default plugin directory)
+" 
+"  MORE INFORMATION
+"  - In PHPCustomFolds() you can i.e. comment the PHPFoldPureBlock('class', ...) 
+"    call to have the script not fold classes. You can also change the second
+"    parameter passed to that function call, to have it or not have it fold
+"    PhpDoc comments. All other folding you can turn on/off in this function.
+"  - You can tweak the foldtext to your liking in the function PHPFoldText().
+"  - You can set some preferences and default settings a few lines below 
+"    at the "Script configuration" part.
+" 
+"  This script is tested with Vim version >= 6.3 on windows and linux.
 
 command! EnableFastPHPFolds call <SID>EnableFastPHPFolds()
 command! -nargs=* EnablePHPFolds call <SID>EnablePHPFolds(<f-args>)
 command! DisablePHPFolds call <SID>DisablePHPFolds()
 
+" {{{ Script configuration
+" Display the following after the foldtext if a fold contains phpdoc
+let g:phpDocIncludedPostfix = '**'
+let g:phpDocBlockIncludedPostfix = '**#@+'
+
+" Default values
+" .. search this # of empty lines for PhpDoc comments
+let g:searchPhpDocLineCount = 1
+" .. search this # of empty lines that 'trail' the foldmatch
+let g:searchEmptyLinesPostfixing = 1
+" }}}
 " {{{ Script constants
 let s:synIDattr_exists = exists('*synIDattr')
 let s:TRUE = 1
@@ -43,27 +75,6 @@ let s:FOLD_WITH_PHPDOC = 1
 let s:FOLD_WITHOUT_PHPDOC = 2
 let s:SEARCH_PAIR_START_FIRST = 1
 let s:SEARCH_PAIR_IMMEDIATELY = 2
-let s:WITH_RECURSION = s:TRUE
-let s:WITHOUT_RECURSION = s:FALSE
-" }}}
-" {{{ Script configuration
-
-" Display the following after the foldtext if a fold contains phpdoc
-let g:phpDocIncludedPostfix = '*'
-
-" Default values
-" .. search this # of empty lines for PhpDoc comments
-let g:searchPhpDocLineCount = 1
-" .. search this # of empty lines that 'trail' the foldmatch
-let g:searchEmptyLinesPostfixing = 1
-
-
-" Script defaults
-" .. search recursively by default in "pure block" folds?
-let g:searchRecursionModeInPureBlockFolds = s:WITHOUT_RECURSION
-" .. search recursively by default in "marker" folds?
-let g:searchRecursionModeInMarkerFolds = s:WITH_RECURSION
-" .. 
 " }}}
 
 function! s:EnableFastPHPFolds() " {{{
@@ -71,19 +82,16 @@ function! s:EnableFastPHPFolds() " {{{
 endfunction
 " }}}
 function! s:EnablePHPFolds(...) " {{{
+	let s:extensiveBracketChecking = s:TRUE
+
 	" Check function arguments
-	if a:0 == 0
-		let s:extensiveBracketChecking = s:TRUE
-	elseif a:0 == 1
+	if a:0 == 1
 		let s:extensiveBracketChecking = a:1
 	endif
 
 	" Remember cursor information if possible
 	let s:savedCursor = line(".")
 
-	" Move to file top
-	exec 0
-	
 	" Initialize variables
 	set foldmethod=manual
 	set foldtext=PHPFoldText()
@@ -92,6 +100,10 @@ function! s:EnablePHPFolds(...) " {{{
 
 	let s:searchPhpDocLineCount = g:searchPhpDocLineCount
 	let s:searchEmptyLinesPostfixing = g:searchEmptyLinesPostfixing
+
+
+	" Move to end of file
+	exec s:fileLineCount	
 	
 	" First pass: Look for Folds, remember opened folds
 	let s:foldingMode = s:MODE_REMEMBER_FOLD_SETTINGS
@@ -129,9 +141,9 @@ function! s:DisablePHPFolds() " {{{
 endfunction
 " }}}
 function! s:PHPCustomFolds() " {{{
-	" NOTE: The 3rd and 4th parameter for functions PHPFoldProperties and
-	" PHPFoldPureBlock overwrite respectively: g:searchPhpDocLineCount and
-	" g:searchEmptyLinesPostfixing
+	" NOTE: The two last parameters for functions PHPFoldProperties() and
+	"       PHPFoldPureBlock() overwrite: 'g:searchPhpDocLineCount' and 
+	"       'g:searchEmptyLinesPostfixing'..
 
 	" Fold function with PhpDoc (function foo() {})
 	call s:PHPFoldPureBlock('function', s:FOLD_WITH_PHPDOC)
@@ -153,15 +165,16 @@ function! s:PHPCustomFolds() " {{{
 	call s:PHPFoldProperties('^\s*\$GLOBALS.*array\s*(', ";", s:FOLD_WITH_PHPDOC)
 
 	" Fold marker style comments ({{{ foo }}})
-	" NOTE: Recursion does not yet work in this version!!
-	call s:PHPFoldMarkers('{{{', '}}}', s:WITHOUT_RECURSION)
+	call s:PHPFoldMarkers('{{{', '}}}')
+
+	" Fold PhpDoc "DocBlock" templates (#@+ foo #@-)
+	call s:PHPFoldMarkers('#@+', '#@-')
 endfunction
 " }}}
 function! s:PHPFoldPureBlock(startPattern, ...) " {{{
 	let s:searchPhpDocLineCount = g:searchPhpDocLineCount
 	let s:searchEmptyLinesPostfixing = g:searchEmptyLinesPostfixing
 	let s:currentPhpDocMode = s:FOLD_WITH_PHPDOC
-	let recursion = g:searchRecursionModeInPureBlockFolds
 
 	if a:0 >= 1
 		" Do we also put the PHP doc part in the fold?
@@ -171,24 +184,19 @@ function! s:PHPFoldPureBlock(startPattern, ...) " {{{
 		" How far do we want to look for PhpDoc comments?
 		let s:searchPhpDocLineCount = a:2
 	endif
-	if a:0 >= 3
+	if a:0 == 3
 		" How greedy are we on postfixing empty lines?
 		let s:searchEmptyLinesPostfixing = a:3
 	endif
-	if a:0 == 4
-		" Can there be nested pure blocks?
-		let recursion = a:4
-	endif
 
-	" Move to file top
-	exec 0
+	" Move to file end
+	exec s:fileLineCount
 
 	" Loop through file, searching for folds
 	while 1
-		let lineCurrent = s:FindPureBlockStart(a:startPattern)
+		let s:lineStart = s:FindPureBlockStart(a:startPattern)
 
-		if lineCurrent != 0
-			let s:lineStart = line('.')
+		if s:lineStart != 0
 
 			let s:lineStart = s:FindOptionalPHPDocComment()
 			let s:lineStop = s:FindPureBlockEnd('{', '}', s:SEARCH_PAIR_START_FIRST)
@@ -199,16 +207,14 @@ function! s:PHPFoldPureBlock(startPattern, ...) " {{{
 			endif
 
 			" Do something with the potential fold based on the Mode we're in
-			call s:HandleFold(lineCurrent)
+			call s:HandleFold()
 
-			" Go to fold start again (or continue at fold end)
-			if recursion == s:WITH_RECURSION
-				exec lineCurrent + 1
-			endif
 		else
 			break
 		endif
-		let lineCurrent = lineCurrent + 1
+
+		" Goto fold start (remember we're searching upwards)
+		exec s:lineStart
 	endwhile
 
 
@@ -219,23 +225,16 @@ function! s:PHPFoldPureBlock(startPattern, ...) " {{{
 endfunction
 " }}}
 function! s:PHPFoldMarkers(startPattern, endPattern, ...) " {{{
-	let recursion = s:WITH_RECURSION
-
-	if a:0 >= 1
-		let recursion = a:1
-	endif
-	
 	let s:currentPhpDocMode = s:FOLD_WITHOUT_PHPDOC
 
-	" Move to file top
-	exec 0
+	" Move to file end
+	exec s:fileLineCount
 
 	" Loop through file, searching for folds
 	while 1
-		let lineCurrent = s:FindPatternStart(a:startPattern)
+		let s:lineStart = s:FindPatternStart(a:startPattern)
 
-		if lineCurrent != 0
-			let s:lineStart = line('.')
+		if s:lineStart != 0
 			let s:lineStart = s:FindOptionalPHPDocComment()
 			" The fourth parameter is for disabling the search for trailing
 			" empty lines..
@@ -248,16 +247,13 @@ function! s:PHPFoldMarkers(startPattern, endPattern, ...) " {{{
 			endif
 
 			" Do something with the potential fold based on the Mode we're in
-			call s:HandleFold(lineCurrent)
-
-			" Go to fold start again (or continue at fold end)
-			if recursion == s:WITH_RECURSION
-				exec lineCurrent + 1
-			endif
+			call s:HandleFold()
 		else
 			break
 		endif
-		let lineCurrent = lineCurrent + 1
+
+		" Goto fold start (remember we're searching upwards)
+		exec s:lineStart
 	endwhile
 
 	if s:foldingMode != s:MODE_REMEMBER_FOLD_SETTINGS
@@ -283,16 +279,14 @@ function! s:PHPFoldProperties(startPattern, endPattern, ...) " {{{
 		let s:searchEmptyLinesPostfixing = a:3
 	endif
 
-	" Move to file top
-	exec 0
+	" Move to end of file
+	exec s:fileLineCount
 
 	" Loop through file, searching for folds
 	while 1
-		let lineCurrent = s:FindPatternStart(a:startPattern)
+		let s:lineStart = s:FindPatternStart(a:startPattern)
 
-		if lineCurrent != 0
-			let s:lineStart = line('.')
-
+		if s:lineStart != 0
 			let s:lineStart = s:FindOptionalPHPDocComment()
 			let s:lineStop = s:FindPatternEnd(a:endPattern)
 
@@ -302,11 +296,14 @@ function! s:PHPFoldProperties(startPattern, endPattern, ...) " {{{
 			endif
 
 			" Do something with the potential fold based on the Mode we're in
-			call s:HandleFold(lineCurrent)
+			call s:HandleFold()
 		else
 			break
 		endif
-		let lineCurrent = lineCurrent + 1
+
+		" Goto fold start (remember we're searching upwards)
+		exec s:lineStart
+		
 	endwhile
 
 	if s:foldingMode != s:MODE_REMEMBER_FOLD_SETTINGS
@@ -315,19 +312,17 @@ function! s:PHPFoldProperties(startPattern, endPattern, ...) " {{{
     endif
 endfunction
 " }}}
-function! s:HandleFold(lineCurrent) " {{{
-	let lineCurrent = a:lineCurrent
-
+function! s:HandleFold() " {{{
 	if s:foldingMode == s:MODE_REMEMBER_FOLD_SETTINGS
 		" If we are in an actual fold..,
-		if foldlevel(lineCurrent) != 0
+		if foldlevel(s:lineStart) != 0
 			" .. and it is not closed..,
-			if foldclosed(lineCurrent) == -1
+			if foldclosed(s:lineStart) == -1
                 " .. and it is more then one lines 
                 " (it has to be or it will be open by default)
                 if s:lineStop - s:lineStart >= 1
                     " Remember it as an open fold
-                    let s:foldsOpenedList{s:openFoldListItems} = lineCurrent
+                    let s:foldsOpenedList{s:openFoldListItems} = s:lineStart
                     let s:openFoldListItems = s:openFoldListItems + 1
                 endif
 			endif
@@ -336,7 +331,7 @@ function! s:HandleFold(lineCurrent) " {{{
 		" If the cursor is inside the fold, it needs to be opened
 		if s:lineStart <= s:savedCursor && s:lineStop >= s:savedCursor
 			" Remember it as an open fold
-			let s:foldsOpenedList{s:openFoldListItems} = lineCurrent
+			let s:foldsOpenedList{s:openFoldListItems} = s:lineStart
 			let s:openFoldListItems = s:openFoldListItems + 1
 		endif
 		
@@ -363,11 +358,27 @@ function! s:FindPureBlockStart(startPattern) " {{{
 	"								{
 	"
 	"return search(a:startPattern . '.*\%[\n].*{', 'W')
-	return search(a:startPattern . '.*\%[\n].*\%[\n].*{', 'W')
+	"return search(a:startPattern . '.*\%[\n].*\%[\n].*{', 'bW')
+
+	" This function can match the line its on *again* if the cursor was
+	" restored.. hence we search twice if needed..
+	let currentLine = line('.')
+	let line = search(a:startPattern . '.*\%[\n].*\%[\n].*{', 'bW')
+	if currentLine == line
+		let line = search(a:startPattern . '.*\%[\n].*\%[\n].*{', 'bW')
+	endif
+	return line
 endfunction
 " }}}
 function! s:FindPatternStart(startPattern) " {{{
-	return search(a:startPattern, 'W')
+	" This function can match the line its on *again* if the cursor was
+	" restored.. hence we search twice if needed..
+	let currentLine = line('.')
+	let line = search(a:startPattern, 'bW')
+	if currentLine == line
+		let line = search(a:startPattern, 'bW')
+	endif
+	return line
 endfunction
 " }}}
 function! s:FindOptionalPHPDocComment() " {{{
@@ -394,11 +405,18 @@ function! s:FindOptionalPHPDocComment() " {{{
 		" Then search for the matching C style /* opener
 		while 1
 			if strridx(getline(checkLine), "\/\*") != -1
-				" Only continue adjusting the Fold's start if it really is PHPDoc
+				" Only continue adjusting the Fold's start if it really is PHPdoc..
 				"  (which is characterized by a double asterisk, like /**)
 				if strridx(getline(checkLine), "\/\*\*") != -1
-					" .. Return this as the Fold's start
-					return checkLine
+					" Also only continue adjusting if the PHPdoc opener does
+					" not contain a '/**#@+'. Those type of comments are
+					" supposed to match with a #@- .. 
+					if strridx(getline(checkLine), '#@+') == -1
+						" .. Return this as the Fold's start
+						return checkLine
+					else
+						break
+					endif
 				else
 					break
 				endif
@@ -477,9 +495,9 @@ endfunction
 function! PHPFoldText() " {{{
 	let currentLine = v:foldstart
 	let lines = (v:foldend - v:foldstart + 1)
+	let lineString = getline(currentLine)
 	" See if we folded a marker
-	if strridx(getline(currentLine), "{{{") != -1 " }}}
-		let lineString = getline(currentLine)
+	if strridx(lineString, "{{{") != -1 " }}}
 		" Is there text after the fold opener?
 		if (matchstr(lineString, '^.*{{{..*$') == lineString) " }}}
 			" Then only show that text
@@ -489,9 +507,19 @@ function! PHPFoldText() " {{{
 			" Try to strip away the remainder
 			let lineString = substitute(lineString, '\s*{{{.*$', '', 'g') " }}}
 		endif
-		break
+	" See if we folded a DocBlock
+	elseif strridx(lineString, '#@+') != -1
+		" Is there text after the #@+ piece?
+		if (matchstr(lineString, '^.*#@+..*$') == lineString)
+			" Then show that text
+			let lineString = substitute(lineString, '^.*#@+', '', 'g') . ' ' . g:phpDocBlockIncludedPostfix
+		" There is nothing?
+		else
+			" Use the next line..
+			let lineString = getline(currentLine + 1) . ' ' . g:phpDocBlockIncludedPostfix
+		endif
 	" See if we folded an API comment block
-	elseif strridx(getline(currentLine), "\/\*\*") != -1
+	elseif strridx(lineString, "\/\*\*") != -1
 		" (I can't get search() or searchpair() to work.., therefore the
 		" following loop)
 		let s:state = 0
@@ -507,15 +535,14 @@ function! PHPFoldText() " {{{
 			let currentLine = currentLine + 1
 		endwhile
 		let lineString = getline(currentLine)
-	else
-		let lineString = getline(currentLine)
 	endif
 	
 	" Some common replaces...
 	" if currentLine != v:foldend 
 		let lineString = substitute(lineString, '/\*\|\*/\d\=', '', 'g')
-		let lineString = substitute(lineString, '^\s*', '', 'g')
+		let lineString = substitute(lineString, '^\s*\*\?\s*', '', 'g')
 		let lineString = substitute(lineString, '{$', '', 'g')
+		let lineString = substitute(lineString, '($', '(..);', 'g')
 	" endif
 
 	" Emulates printf("%3d", lines)..
