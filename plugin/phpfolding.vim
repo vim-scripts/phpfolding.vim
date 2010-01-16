@@ -1,8 +1,8 @@
 " Plugin for automatic folding of PHP functions (also folds related PHPdoc)
 "
 " Maintainer: Ray Burgemeestre
-" Last Change: 2006 Aug 26
-" 
+" Last Change: 2010 Jan 15
+"
 " USAGE
 "  If you enabled the script in your after/ftplugin directory (see install)
 "  then it will be executed after you open a .php file.
@@ -15,7 +15,7 @@
 "  F6 - To do the same with more extensive bracket checking (might work
 "       better if your folds are messed up due to misinterpreted brackets).
 "  F7 - To remove all folds.
-" 
+"
 " INSTALL
 "  1. Put phpfolding.vim in your plugin directory (~/.vim/plugin)
 "  2. You might want to add the following keyboard mappings to your .vimrc:
@@ -24,31 +24,47 @@
 "       map <F6> <Esc>:EnablePHPFolds<Cr>
 "       map <F7> <Esc>:DisablePHPFolds<Cr>
 "
-"  3. You might want to add the following lines to php.vim in your after/ftplugin
-"     directory (~/.vim/after/ftplugin/php.vim), this will be executed after 
-"     opening a .php file:
+"  3. You can disable auto folding in your .vimrc with:
 "
-"       " Don't use the PHP syntax folding
-"       setlocal foldmethod=manual
-"       " Turn on PHP fast folds
-"       EnableFastPHPFolds
+"       let g:DisableAutoPHPFolding = 1
 "
-"  It might be necessary that you load the plugin from your .vimrc, i.e.:
-"    let php_folding=0 
+"    By default EnableFastPHPFolds is called. Do these mess up your folds, 
+"    you can try to replace EnableFastPHPFolds by EnablePHPFolds. You can
+"    change this in function s:CheckAutocmdEnablePHPFold. 
+"
+" NOTE
+"  It may be that you need to load the plugin from your .vimrc manually, in
+"  case it doesn't work:
+"
+"    let php_folding=0
 "      (if you can't use the after directory in step 3)
 "    source ~/path/to/phpfolding.vim
 "      (if you're not using the default plugin directory)
-" 
+"
 "  MORE INFORMATION
-"  - In PHPCustomFolds() you can i.e. comment the PHPFoldPureBlock('class', ...) 
+"  - In PHPCustomFolds() you can i.e. comment the PHPFoldPureBlock('class', ...)
 "    call to have the script not fold classes. You can also change the second
 "    parameter passed to that function call, to have it or not have it fold
 "    PhpDoc comments. All other folding you can turn on/off in this function.
 "  - You can tweak the foldtext to your liking in the function PHPFoldText().
-"  - You can set some preferences and default settings a few lines below 
+"  - You can set some preferences and default settings a few lines below
 "    at the "Script configuration" part.
-" 
+"
 "  This script is tested with Vim version >= 6.3 on windows and linux.
+
+" Avoid reloading {{{1
+if exists('loaded_phpfolding')
+    finish
+endif
+
+let loaded_phpfolding = 1
+" }}}
+
+" .vimrc variable to disable autofolding for php files {{{1
+if !exists("g:DisableAutoPHPFolding")
+    let g:DisableAutoPHPFolding = 0
+endif
+" }}}
 
 command! EnableFastPHPFolds call <SID>EnableFastPHPFolds()
 command! -nargs=* EnablePHPFolds call <SID>EnablePHPFolds(<f-args>)
@@ -126,6 +142,7 @@ function! s:EnablePHPFolds(...) " {{{
 		let currentItem = currentItem + 1
 	endwhile
 
+    :redraw
 	echo s:foldsCreated . " fold(s) created"
 
 	" Restore cursor
@@ -142,7 +159,7 @@ endfunction
 " }}}
 function! s:PHPCustomFolds() " {{{
 	" NOTE: The two last parameters for functions PHPFoldProperties() and
-	"       PHPFoldPureBlock() overwrite: 'g:searchPhpDocLineCount' and 
+	"       PHPFoldPureBlock() overwrite: 'g:searchPhpDocLineCount' and
 	"       'g:searchEmptyLinesPostfixing'..
 
 	" Fold function with PhpDoc (function foo() {})
@@ -238,7 +255,7 @@ function! s:PHPFoldMarkers(startPattern, endPattern, ...) " {{{
 			let s:lineStart = s:FindOptionalPHPDocComment()
 			" The fourth parameter is for disabling the search for trailing
 			" empty lines..
-			let s:lineStop = s:FindPureBlockEnd(a:startPattern, a:endPattern, 
+			let s:lineStop = s:FindPureBlockEnd(a:startPattern, a:endPattern,
 				\ s:SEARCH_PAIR_IMMEDIATELY, s:FALSE)
 
 			" Stop on Error
@@ -318,7 +335,7 @@ function! s:HandleFold() " {{{
 		if foldlevel(s:lineStart) != 0
 			" .. and it is not closed..,
 			if foldclosed(s:lineStart) == -1
-                " .. and it is more then one lines 
+                " .. and it is more then one lines
                 " (it has to be or it will be open by default)
                 if s:lineStop - s:lineStart >= 1
                     " Remember it as an open fold
@@ -410,7 +427,7 @@ function! s:FindOptionalPHPDocComment() " {{{
 				if strridx(getline(checkLine), "\/\*\*") != -1
 					" Also only continue adjusting if the PHPdoc opener does
 					" not contain a '/**#@+'. Those type of comments are
-					" supposed to match with a #@- .. 
+					" supposed to match with a #@- ..
 					if strridx(getline(checkLine), '#@+') == -1
 						" .. Return this as the Fold's start
 						return checkLine
@@ -538,7 +555,7 @@ function! PHPFoldText() " {{{
 	endif
 	
 	" Some common replaces...
-	" if currentLine != v:foldend 
+	" if currentLine != v:foldend
 		let lineString = substitute(lineString, '/\*\|\*/\d\=', '', 'g')
 		let lineString = substitute(lineString, '^\s*\*\?\s*', '', 'g')
 		let lineString = substitute(lineString, '{$', '', 'g')
@@ -574,6 +591,21 @@ function! SkipMatch() " {{{
 		return 1
 	endif
 endfun
+" }}}
+
+" Check filetype == php before automatically creating (fast) folds {{{1
+function! s:CheckAutocmdEnablePHPFold()
+    if &filetype == "php" && ! g:DisableAutoPHPFolding
+        call s:EnableFastPHPFolds()
+    endif
+endfunction
+" }}}
+
+" Call CheckAutocmdEnablePHPFold on BufReadPost {{{1
+augroup SetPhpFolds
+    au!
+    au BufReadPost * call s:CheckAutocmdEnablePHPFold()
+augroup END
 " }}}
 
 " vim:ft=vim:foldmethod=marker:nowrap:tabstop=4:shiftwidth=4
