@@ -166,7 +166,7 @@ function! s:PHPCustomFolds() " {{{
 	call s:PHPFoldPureBlock('function', s:FOLD_WITH_PHPDOC)
 
 	" Fold class properties with PhpDoc (var $foo = NULL;)
-	call s:PHPFoldProperties('^\s*var\s\$', ";", s:FOLD_WITH_PHPDOC, 1, 1)
+	call s:PHPFoldProperties('^\s*\(\(private\)\|\(public\)\|\(protected\)\|\(var\)\)\s\$', ";", s:FOLD_WITH_PHPDOC, 1, 1)
 
 	" Fold class without PhpDoc (class foo {})
 	call s:PHPFoldPureBlock('^\s*\(abstract\s*\)\?class', s:FOLD_WITH_PHPDOC)
@@ -380,9 +380,9 @@ function! s:FindPureBlockStart(startPattern) " {{{
 	" This function can match the line its on *again* if the cursor was
 	" restored.. hence we search twice if needed..
 	let currentLine = line('.')
-	let line = search(a:startPattern . '.*\%[\n].*\%[\n].*{', 'bW')
+	let line = search(a:startPattern . '.*\(\%[\n].*\)\{,10\}{', 'bW')
 	if currentLine == line
-		let line = search(a:startPattern . '.*\%[\n].*\%[\n].*{', 'bW')
+		let line = search(a:startPattern . '.*\(\%[\n].*\)\{,10\}{', 'bW')
 	endif
 	return line
 endfunction
