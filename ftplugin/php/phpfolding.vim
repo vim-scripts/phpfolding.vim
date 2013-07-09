@@ -54,13 +54,13 @@
 let s:save_cpo = &cpo
 set cpo&vim
 
-" ftplugin section
-if &filetype == "php" && ! g:DisableAutoPHPFolding
-    call s:EnableFastPHPFolds()
-endif
-
 " Avoid reloading {{{1
 if exists('loaded_phpfolding')
+    " ftplugin section
+    if !get(g:, 'DisableAutoPHPFolding', 0)
+        call s:EnableFastPHPFolds()
+    endif
+
     let &cpo = s:save_cpo
     unlet s:save_cpo
     finish
@@ -619,6 +619,11 @@ endfun
 "     au BufReadPost * call s:CheckAutocmdEnablePHPFold()
 " augroup END
 " " }}}
+
+" ftplugin section
+if !get(g:, 'DisableAutoPHPFolding', 0)
+    call s:EnableFastPHPFolds()
+endif
 
 let &cpo = s:save_cpo
 unlet s:save_cpo
