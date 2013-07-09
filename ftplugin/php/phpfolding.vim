@@ -51,9 +51,18 @@
 "    at the "Script configuration" part.
 "
 "  This script is tested with Vim version >= 6.3 on windows and linux.
+let s:save_cpo = &cpo
+set cpo&vim
+
+" ftplugin section
+if &filetype == "php" && ! g:DisableAutoPHPFolding
+    call s:EnableFastPHPFolds()
+endif
 
 " Avoid reloading {{{1
 if exists('loaded_phpfolding')
+    let &cpo = s:save_cpo
+    unlet s:save_cpo
     finish
 endif
 
@@ -596,19 +605,21 @@ function! SkipMatch() " {{{
 endfun
 " }}}
 
-" Check filetype == php before automatically creating (fast) folds {{{1
-function! s:CheckAutocmdEnablePHPFold()
-    if &filetype == "php" && ! g:DisableAutoPHPFolding
-        call s:EnableFastPHPFolds()
-    endif
-endfunction
-" }}}
+" " Check filetype == php before automatically creating (fast) folds {{{1
+" function! s:CheckAutocmdEnablePHPFold()
+"     if &filetype == "php" && ! g:DisableAutoPHPFolding
+"         call s:EnableFastPHPFolds()
+"     endif
+" endfunction
+" " }}}
 
-" Call CheckAutocmdEnablePHPFold on BufReadPost {{{1
-augroup SetPhpFolds
-    au!
-    au BufReadPost * call s:CheckAutocmdEnablePHPFold()
-augroup END
-" }}}
+" " Call CheckAutocmdEnablePHPFold on BufReadPost {{{1
+" augroup SetPhpFolds
+"     au!
+"     au BufReadPost * call s:CheckAutocmdEnablePHPFold()
+" augroup END
+" " }}}
 
+let &cpo = s:save_cpo
+unlet s:save_cpo
 " vim:ft=vim:foldmethod=marker:nowrap:tabstop=4:shiftwidth=4
