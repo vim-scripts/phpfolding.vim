@@ -1,7 +1,7 @@
 " Plugin for automatic folding of PHP functions (also folds related PHPdoc)
 "
 " Maintainer: Ray Burgemeestre
-" Last Change: 2010 Jan 15
+" Last Change: 2013 Aug 26
 "
 " USAGE
 "  If you enabled the script in your after/ftplugin directory (see install)
@@ -17,7 +17,10 @@
 "  F7 - To remove all folds.
 "
 " INSTALL
-"  1. Put phpfolding.vim in your plugin directory (~/.vim/plugin)
+"  1. Put phpfolding.vim in your plugin directory (~/.vim/ftplugin)
+"
+"       make sure you have "filetype plugin on" in your .vimrc!
+"
 "  2. You might want to add the following keyboard mappings to your .vimrc:
 "
 "       map <F5> <Esc>:EnableFastPHPFolds<Cr>
