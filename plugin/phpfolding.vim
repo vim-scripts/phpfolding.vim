@@ -1,7 +1,7 @@
 " Plugin for automatic folding of PHP functions (also folds related PHPdoc)
 "
 " Maintainer: Ray Burgemeestre
-" Last Change: 2010 Jan 15
+" Last Change: 2013 Aug 26
 "
 " USAGE
 "  If you enabled the script in your after/ftplugin directory (see install)
@@ -17,7 +17,10 @@
 "  F7 - To remove all folds.
 "
 " INSTALL
-"  1. Put phpfolding.vim in your plugin directory (~/.vim/plugin)
+"  1. Put phpfolding.vim in your plugin directory (~/.vim/ftplugin/php/)
+"
+"       make sure you have "filetype plugin on" in your .vimrc!
+"
 "  2. You might want to add the following keyboard mappings to your .vimrc:
 "
 "       map <F5> <Esc>:EnableFastPHPFolds<Cr>
@@ -28,9 +31,9 @@
 "
 "       let g:DisableAutoPHPFolding = 1
 "
-"    By default EnableFastPHPFolds is called. Do these mess up your folds, 
+"    By default EnableFastPHPFolds is called. Do these mess up your folds,
 "    you can try to replace EnableFastPHPFolds by EnablePHPFolds. You can
-"    change this in function s:CheckAutocmdEnablePHPFold. 
+"    change this in function s:CheckAutocmdEnablePHPFold.
 "
 " NOTE
 "  It may be that you need to load the plugin from your .vimrc manually, in
@@ -51,9 +54,18 @@
 "    at the "Script configuration" part.
 "
 "  This script is tested with Vim version >= 6.3 on windows and linux.
+let s:save_cpo = &cpo
+set cpo&vim
 
 " Avoid reloading {{{1
 if exists('loaded_phpfolding')
+    " ftplugin section
+    if !get(g:, 'DisableAutoPHPFolding', 0)
+        call s:EnableFastPHPFolds()
+    endif
+
+    let &cpo = s:save_cpo
+    unlet s:save_cpo
     finish
 endif
 
@@ -64,6 +76,7 @@ let loaded_phpfolding = 1
 if !exists("g:DisableAutoPHPFolding")
     let g:DisableAutoPHPFolding = 0
 endif
+let g:DisablePHPFoldingClass = get(g:, 'DisablePHPFoldingClass', 1)
 " }}}
 
 command! EnableFastPHPFolds call <SID>EnableFastPHPFolds()
@@ -109,8 +122,8 @@ function! s:EnablePHPFolds(...) " {{{
 	let s:savedCursor = line(".")
 
 	" Initialize variables
-	set foldmethod=manual
-	set foldtext=PHPFoldText()
+	setlocal foldmethod=manual
+	setlocal foldtext=PHPFoldText()
 	let s:openFoldListItems = 0
 	let s:fileLineCount = line('$')
 
@@ -119,8 +132,8 @@ function! s:EnablePHPFolds(...) " {{{
 
 
 	" Move to end of file
-	exec s:fileLineCount	
-	
+	exec s:fileLineCount
+
 	" First pass: Look for Folds, remember opened folds
 	let s:foldingMode = s:MODE_REMEMBER_FOLD_SETTINGS
 	call s:PHPCustomFolds()
@@ -128,17 +141,17 @@ function! s:EnablePHPFolds(...) " {{{
 	" Second pass: Recreate Folds, restore previously opened
 	let s:foldingMode = s:MODE_CREATE_FOLDS
 	" .. Remove all folds first
-	normal zE
+	normal! zE
 	let s:foldsCreated = 0
 	call s:PHPCustomFolds()
 	" .. Fold all
-	normal zM
+	normal! zM
 
 	" Restore previously opened folds
 	let currentItem = 0
 	while currentItem < s:openFoldListItems
 		exec s:foldsOpenedList{currentItem}
-		normal zo
+		normal! zo
 		let currentItem = currentItem + 1
 	endwhile
 
@@ -147,13 +160,13 @@ function! s:EnablePHPFolds(...) " {{{
 
 	" Restore cursor
 	exec s:savedCursor
-	
+
 endfunction
 " }}}
 function! s:DisablePHPFolds() " {{{
-	"set foldmethod=manual
-	set foldtext=
-	normal zE
+	"setlocal foldmethod=manual
+	setlocal foldtext=
+	normal! zE
 	echo "php fold(s) deleted"
 endfunction
 " }}}
@@ -166,11 +179,13 @@ function! s:PHPCustomFolds() " {{{
 	call s:PHPFoldPureBlock('function', s:FOLD_WITH_PHPDOC)
 
 	" Fold class properties with PhpDoc (var $foo = NULL;)
-	call s:PHPFoldProperties('^\s*var\s\$', ";", s:FOLD_WITH_PHPDOC, 1, 1)
+	call s:PHPFoldProperties('^\s*\(\(private\)\|\(public\)\|\(protected\)\|\(var\)\)\s\$', ";", s:FOLD_WITH_PHPDOC, 1, 1)
 
-	" Fold class without PhpDoc (class foo {})
-	call s:PHPFoldPureBlock('^\s*\(abstract\s*\)\?class', s:FOLD_WITH_PHPDOC)
-	
+    if !g:DisablePHPFoldingClass
+        " Fold class without PhpDoc (class foo {})
+        call s:PHPFoldPureBlock('^\s*\(abstract\s*\)\?class', s:FOLD_WITH_PHPDOC)
+    endif
+
 	" Fold define()'s with their PhpDoc
 	call s:PHPFoldProperties('^\s*define\s*(', ";", s:FOLD_WITH_PHPDOC)
 
@@ -237,7 +252,7 @@ function! s:PHPFoldPureBlock(startPattern, ...) " {{{
 
 	if s:foldingMode != s:MODE_REMEMBER_FOLD_SETTINGS
     	" Remove created folds
-	    normal zR
+	    normal! zR
     endif
 endfunction
 " }}}
@@ -275,7 +290,7 @@ function! s:PHPFoldMarkers(startPattern, endPattern, ...) " {{{
 
 	if s:foldingMode != s:MODE_REMEMBER_FOLD_SETTINGS
     	" Remove created folds
-	    normal zR
+	    normal! zR
     endif
 endfunction
 " }}}
@@ -320,12 +335,12 @@ function! s:PHPFoldProperties(startPattern, endPattern, ...) " {{{
 
 		" Goto fold start (remember we're searching upwards)
 		exec s:lineStart
-		
+
 	endwhile
 
 	if s:foldingMode != s:MODE_REMEMBER_FOLD_SETTINGS
     	" Remove created folds
-	    normal zR
+	    normal! zR
     endif
 endfunction
 " }}}
@@ -351,7 +366,7 @@ function! s:HandleFold() " {{{
 			let s:foldsOpenedList{s:openFoldListItems} = s:lineStart
 			let s:openFoldListItems = s:openFoldListItems + 1
 		endif
-		
+
 	elseif s:foldingMode == s:MODE_CREATE_FOLDS
 		" Correct lineStop if needed (the script might have mistaken lines
 		"   beyond the file's scope for trailing empty lines)
@@ -380,9 +395,9 @@ function! s:FindPureBlockStart(startPattern) " {{{
 	" This function can match the line its on *again* if the cursor was
 	" restored.. hence we search twice if needed..
 	let currentLine = line('.')
-	let line = search(a:startPattern . '.*\%[\n].*\%[\n].*{', 'bW')
+	let line = search(a:startPattern . '.*\(\%[\n].*\)\{,10\}{', 'bW')
 	if currentLine == line
-		let line = search(a:startPattern . '.*\%[\n].*\%[\n].*{', 'bW')
+		let line = search(a:startPattern . '.*\(\%[\n].*\)\{,10\}{', 'bW')
 	endif
 	return line
 endfunction
@@ -478,7 +493,7 @@ function! s:FindPureBlockEnd(startPair, endPair, searchStartPairFirst, ...) " {{
 		" Then be greedy with extra 'trailing' empty line(s)
 		let s:counter = 0
 		while s:counter < s:searchEmptyLinesPostfixing
-			let linestr = getline(line + 1)		
+			let linestr = getline(line + 1)
 			if (matchstr(linestr, '^\s*$') == linestr)
 				let line = line + 1
 			endif
@@ -497,7 +512,7 @@ function! s:FindPatternEnd(endPattern) " {{{
 		" Then be greedy with extra 'trailing' empty line(s)
 		let s:counter = 0
 		while s:counter < s:searchEmptyLinesPostfixing
-			let linestr = getline(line + 1)		
+			let linestr = getline(line + 1)
 			if (matchstr(linestr, '^\s*$') == linestr)
 				let line = line + 1
 			endif
@@ -553,7 +568,7 @@ function! PHPFoldText() " {{{
 		endwhile
 		let lineString = getline(currentLine)
 	endif
-	
+
 	" Some common replaces...
 	" if currentLine != v:foldend
 		let lineString = substitute(lineString, '/\*\|\*/\d\=', '', 'g')
@@ -572,7 +587,7 @@ function! PHPFoldText() " {{{
 	" Append an (a) if there is PhpDoc in the fold (a for API)
 	if currentLine != v:foldstart
 		let lineString = lineString . " " . g:phpDocIncludedPostfix . " "
-	endif	
+	endif
 
 	" Return the foldtext
 	return "+--".lines." lines: " . lineString
@@ -593,19 +608,26 @@ function! SkipMatch() " {{{
 endfun
 " }}}
 
-" Check filetype == php before automatically creating (fast) folds {{{1
-function! s:CheckAutocmdEnablePHPFold()
-    if &filetype == "php" && ! g:DisableAutoPHPFolding
-        call s:EnableFastPHPFolds()
-    endif
-endfunction
-" }}}
+" " Check filetype == php before automatically creating (fast) folds {{{1
+" function! s:CheckAutocmdEnablePHPFold()
+"     if &filetype == "php" && ! g:DisableAutoPHPFolding
+"         call s:EnableFastPHPFolds()
+"     endif
+" endfunction
+" " }}}
 
-" Call CheckAutocmdEnablePHPFold on BufReadPost {{{1
-augroup SetPhpFolds
-    au!
-    au BufReadPost * call s:CheckAutocmdEnablePHPFold()
-augroup END
-" }}}
+" " Call CheckAutocmdEnablePHPFold on BufReadPost {{{1
+" augroup SetPhpFolds
+"     au!
+"     au BufReadPost * call s:CheckAutocmdEnablePHPFold()
+" augroup END
+" " }}}
 
+" ftplugin section
+if !get(g:, 'DisableAutoPHPFolding', 0)
+    call s:EnableFastPHPFolds()
+endif
+
+let &cpo = s:save_cpo
+unlet s:save_cpo
 " vim:ft=vim:foldmethod=marker:nowrap:tabstop=4:shiftwidth=4
