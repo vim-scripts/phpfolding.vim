@@ -17,7 +17,7 @@
 "  F7 - To remove all folds.
 "
 " INSTALL
-"  1. Put phpfolding.vim in your plugin directory (~/.vim/ftplugin)
+"  1. Put phpfolding.vim in your plugin directory (~/.vim/ftplugin/php/)
 "
 "       make sure you have "filetype plugin on" in your .vimrc!
 "

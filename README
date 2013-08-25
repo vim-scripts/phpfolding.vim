@@ -58,16 +58,19 @@ FUTURE
 CONTRIBUTE / GITHUB
 This project is hosted on github as a mirror through
     https://github.com/vim-scripts/phpfolding.vim
-I do not own vim-scripts, so you could also fork mine:
+I do not own vim-scripts, so preferably fork mine:
     https://github.com/rayburgemeestre/phpfolding.vim
-It's then easier for me to accept pull requests and upload new version(s) here.
+It's then easier for me to accept pull requests and upload new version(s) here,
+also I cannot put phpfolding.vim in the ftplugin/php directory through the
+vim.org interface.
+
 
 COMPATIBILITY
 This script is tested successfully with Vim version >= 6.3 on windows and linux
 (With 6.0 it works *sometimes*, I don't recommend using it in that version)
  
 INSTALL
-1. Put phpfolding.vim in your plugin directory (~/.vim/ftplugin)
+1. Put phpfolding.vim in your plugin directory (~/.vim/ftplugin/php/)
 
       Make sure you have "filetype plugin on" in your .vimrc!
 
