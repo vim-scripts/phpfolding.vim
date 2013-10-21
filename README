@@ -4,6 +4,7 @@ This script can fold PHP functions and/or classes, properties with their phpdoc
 without manually adding marker style folds ({{{ and }}}). 
 It will generate the following folds when executed:
 
+```
 <?php
 /**
  * This is Foo...
@@ -16,9 +17,11 @@ class Foo
 +-- 24 lines: function baz($bar) ----------------------------------------------------
 }
 ?>
+```
 
 Based on e.g. functions declared like this:
 
+```
 <?php
 /**
 * This is fooFunction...
@@ -32,6 +35,7 @@ function fooFunction($bar)
     ...
 }
 ?>
+```
 
 SCREENSHOT
 You can view a screenshot here: http://blog.cppse.nl/phpfolding-vim
