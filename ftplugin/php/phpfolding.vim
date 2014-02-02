@@ -179,7 +179,7 @@ function! s:PHPCustomFolds() " {{{
 	call s:PHPFoldPureBlock('function', s:FOLD_WITH_PHPDOC)
 
 	" Fold class properties with PhpDoc (var $foo = NULL;)
-	call s:PHPFoldProperties('^\s*\(\(private\)\|\(public\)\|\(protected\)\|\(var\)\)\s\$', ";", s:FOLD_WITH_PHPDOC, 1, 1)
+	call s:PHPFoldProperties('^\s*\(\(private\)\|\(public\)\|\(protected\)\|\(var\)\)\s\(static\s\)*\$', ";", s:FOLD_WITH_PHPDOC, 1, 1)
 
     if !g:DisablePHPFoldingClass
         " Fold class without PhpDoc (class foo {})
