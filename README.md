@@ -1,9 +1,13 @@
+Abstract
+===============
+
 This is a mirror of http://www.vim.org/scripts/script.php?script_id=1623
 
 This script can fold PHP functions and/or classes, properties with their phpdoc
 without manually adding marker style folds ({{{ and }}}). 
 It will generate the following folds when executed:
 
+```
 <?php
 /**
  * This is Foo...
@@ -16,9 +20,11 @@ class Foo
 +-- 24 lines: function baz($bar) ----------------------------------------------------
 }
 ?>
+```
 
 Based on e.g. functions declared like this:
 
+```
 <?php
 /**
 * This is fooFunction...
@@ -32,11 +38,14 @@ function fooFunction($bar)
     ...
 }
 ?>
+```
 
 SCREENSHOT
+----------------
 You can view a screenshot here: http://blog.cppse.nl/phpfolding-vim
 
 FEATURES
+----------------
 - It remembers fold settings. If you add functions and execute the script again,
   your opened folds will not be closed.
 - It will not be confused by brackets in comment blocks or string literals.
@@ -52,45 +61,24 @@ FEATURES
 - Now works properly as ftplugin
 
 FUTURE
+----------------
 - Better 'configurability' as opposed to editting the PHPCustomFolds() function
   and some "Script configuration" global variables.
 
 CONTRIBUTE / GITHUB
-This project is hosted on github as a mirror through
-    https://github.com/vim-scripts/phpfolding.vim
-I do not own vim-scripts, so preferably fork mine:
-    https://github.com/rayburgemeestre/phpfolding.vim
+----------------
+- This project is hosted on github as a mirror through
+ - https://github.com/vim-scripts/phpfolding.vim
+- I do not own vim-scripts, so please fork mine instead:
+ - https://github.com/rayburgemeestre/phpfolding.vim
+
 It's then easier for me to accept pull requests and upload new version(s) here,
 also I cannot put phpfolding.vim in the ftplugin/php directory through the
 vim.org interface.
 
 
 COMPATIBILITY
+--------------
+
 This script is tested successfully with Vim version >= 6.3 on windows and linux
 (With 6.0 it works *sometimes*, I don't recommend using it in that version)
- 
-INSTALL
-1. Put phpfolding.vim in your plugin directory (~/.vim/ftplugin/php/)
-
-      Make sure you have "filetype plugin on" in your .vimrc!
-
-      (folds will then be created after opening a file is recognized as php.)
-
-2. Alternatively, if you want to control loading manually, you might want to
-   add the following keyboard mappings to your .vimrc:
-
-      map <F5> <Esc>:EnableFastPHPFolds<Cr>
-      map <F6> <Esc>:EnablePHPFolds<Cr>
-      map <F7> <Esc>:DisablePHPFolds<Cr>
-
-It might be necessary that you load the plugin from your .vimrc, i.e.:
-   let php_folding=0
-     (if you can't use the after directory in step 3)
-   source ~/path/to/phpfolding.vim
-     (if you're not using the default plugin directory)
-
-KNOWN ISSUES
-1. C++ style commented brackets can still interfere with the bracket matching.
-For example comments like are not recognized as comments:  // old: for (...) {
-Whereas C-style comments are, e.g.:  /* old: for (...) { */
-(Edit: not sure if this is an issue anymore..)
