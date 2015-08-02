@@ -201,6 +201,8 @@ function! s:PHPCustomFolds() " {{{
 
 	" Fold PhpDoc "DocBlock" templates (#@+ foo #@-)
 	call s:PHPFoldMarkers('#@+', '#@-')
+
+    call s:PHPFoldUse()
 endfunction
 " }}}
 function! s:PHPFoldPureBlock(startPattern, ...) " {{{
@@ -523,7 +525,33 @@ function! s:FindPatternEnd(endPattern) " {{{
 	return line
 endfunction
 " }}}
+function! s:PHPFoldUse() " {{{
+	exec 0
+	while 1
+		let lineStart = search("^\s*use", "W")
 
+		if lineStart == 0
+			break
+		endif
+
+		if (foldclosed(lineStart) >= 0)
+			break
+		endif
+
+		let lineStop = lineStart + 1
+		while match(getline(lineStop), '^\s*use') >= 0
+			let lineStop = lineStop + 1
+		endwhile
+
+		let s:lineStart = lineStart
+		let s:lineStop = lineStop - 1
+		if s:lineStop > s:lineStart
+			call s:HandleFold()
+		endif
+		exec s:lineStop + 1
+	endwhile
+endfunction
+" }}}
 function! PHPFoldText() " {{{
 	let currentLine = v:foldstart
 	let lines = (v:foldend - v:foldstart + 1)
