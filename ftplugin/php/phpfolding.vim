@@ -1,7 +1,7 @@
 " Plugin for automatic folding of PHP functions (also folds related PHPdoc)
 "
 " Maintainer: Ray Burgemeestre
-" Last Change: 2013 Aug 26
+" Last Change: 2021 Mar 19
 "
 " USAGE
 "  If you enabled the script in your after/ftplugin directory (see install)
@@ -93,6 +93,10 @@ let g:phpDocBlockIncludedPostfix = '**#@+'
 let g:searchPhpDocLineCount = 1
 " .. search this # of empty lines that 'trail' the foldmatch
 let g:searchEmptyLinesPostfixing = 1
+" .. force redraw screen everytime folds have been created
+" .. redrawing during .vimrc load can cause artifacts when exiting vim later
+" .. at least this is my experience with newer versions of vim
+let g:forceRedrawScreen = 0
 " }}}
 " {{{ Script constants
 let s:synIDattr_exists = exists('*synIDattr')
@@ -155,7 +159,9 @@ function! s:EnablePHPFolds(...) " {{{
 		let currentItem = currentItem + 1
 	endwhile
 
-	:redraw
+	if g:forceRedrawScreen == s:TRUE
+		:redraw
+	endif
 
 	" Restore cursor
 	exec s:savedCursor
