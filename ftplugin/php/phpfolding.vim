@@ -186,8 +186,8 @@ function! s:PHPCustomFolds() " {{{
 	" Fold abstract function with PhpDoc
 	call s:PHPFoldProperties('^\s*abstract\(public\|private\|protected\|static\|\s\)*function\s\+[A-Za-z_][A-Za-z0-9_]*\s*(', ";", s:FOLD_WITH_PHPDOC, 1, 1)
 
-	" Fold class properties with PhpDoc (var $foo = NULL;)
-	call s:PHPFoldProperties('^\s*\(\(private\)\|\(public\)\|\(protected\)\|\(var\)\)\s\(static\s\)*\$', ";", s:FOLD_WITH_PHPDOC, 1, 1)
+	" Fold class properties with PhpDoc (public $foo = null;)
+	call s:PHPFoldProperties('^\s*\(static\)\?\s*\(public\|private\|protected\|var\)\s*\(static\)\?\s*\$', ";", s:FOLD_WITH_PHPDOC, 1, 1)
 
 	if !g:DisablePHPFoldingClass
 		" Fold class without PhpDoc (class foo {})
